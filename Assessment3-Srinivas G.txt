@@ -1,0 +1,100 @@
+HIVE:
+create table posts (id int, post_type int, creation_date string, score int, viewcount float, owneruser_id int,title string, answercount int, commentcount int ) row format delimited fields terminated by ',';
+describe posts;
+load data inpath '/user/pig/posts.csv' into table posts;
+select * from posts;
+select Count(*) from posts;
+
+create table comments (id int, userid int) row format delimited fields terminated by ',';
+describe comments;
+load data inpath '/user/pig/comments.csv' into table comments;
+select * from comments;
+select Count(*) from comments;
+
+ 
+create table users (id int,reputation int,display_name string,loc string,age int) row format delimited fields terminated by ',';
+describe users;
+load data inpath '/user/pig/users.csv' into table users;
+select * from users;
+select Count(*) from users;
+
+create table posttypes (id int, name string) row format delimited fields terminated by ',';
+describe posttypes;
+load data inpath '/user/pig/posttypes.csv' into table posttypes;
+select * from posttypes;
+select Count(*) from posttypes;
+
+A - select display_name,viewcount from posts inner join users on (posts.id=users.id) order by viewcount desc limit 5;
+B - select avg(users.age) as A from users group by age;
+C - select display_name,creation_date from users inner join posts on (users.id=posts.id) order by creation_date asc limit 5;
+D - select display_name,commentcount,reputation from users inner join posts on (posts.id=users.id) order by reputation desc limit 5;
+E - select display_name from users inner join posts on (posts.id=users.id) order by (answercount+commentcount) desc limit 5;
+F - select owneruser_id,display_name,viewcount from users inner join posts on (posts.id=users.id) order by viewcount desc limit 5;
+G - select title,owneruser_id,display_name,commentcount from users inner join posts on (posts.id=users.id) order by commentcount desc limit 1;
+H - select loc ,count(id) as B from users group by loc order by B desc limit 1;
+I - select loc, count(post_type) from users inner join posts on (posts.id=users.id) where loc like '%India%' group by loc;
+    select loc, count(answercount) from users inner join posts on (posts.id=users.id) where loc like '%India%' group by loc;
+    select loc, count(commentcount) from users inner join posts on (posts.id=users.id) where loc like '%India%' group by loc;
+    select loc, count(commentcount+post_type+answercount) from users inner join posts on (posts.id=users.id) where loc like '%India%' group by loc;
+
+PIG:
+a = load '/user/pig/posts.csv' using PigStorage(',') as (id:int, post_type:int, creation_date:chararray, score:int, viewcount:float, owneruser_id:int,title:chararray, answercount:int, commentcount:int );
+b = load '/user/pig/comments.csv' USING PigStorage(',') as (id:int, userid:int);
+c = load '/user/pig/users.csv' using PigStorage(',') as (id:int,reputation:int,display_name:chararray,loc:chararray,age:int);
+d = load '/user/pig/posttypes.csv' USING PigStorage(',') as (id:int, name:chararray);
+
+A - e = join a by id, c by id;
+        f= ORDER e by reputation desc;
+        g= limit f 1;
+        h= foreach g generate display_name,post_type;
+        dump h;
+B - e= group c ALL;
+    f= foreach e generate AVG(c.age);
+    dump f;
+c - e = join a by id,c by id;
+    f = ORDER e by creation_date asc;
+    g = limit f 1;
+    h = foreach g generate display_name,creation_date;
+    dump h;
+D - e = join a by id, c by id;
+    f= ORDER e by reputation desc;
+    g= limit f 1;
+    h= foreach g generate displayname,commentcount;
+E - e= join a by id, c by id;
+    f = ORDER e by score desc;
+    g= limit f 1;
+    h= foreach g generate display_name;
+F - e = join a by id, c by id;
+    f= ORDER e by viewcount desc;
+    g= limit f 1;
+    h= foreach g generate display_name,owneruser_id;
+    dump h;
+G - e = join a by id, c by id;
+    f= ORDER e by commentcount desc;
+    g= limit f 1;
+    h= foreach g generate display_name,title;
+    dump h;
+H - e = join a by id, c by id;
+    f= group e by loc;
+    g= foreach f generate group, COUNT(e.owneruser_id );
+    store g into '/user/pig/';
+    h= ORDER g by  $01 desc;
+    i= limit h 1;
+    dump e;
+I - E = join a by id, c by id;
+    F= filter E by loc=='India';
+    G =group F ALL;
+    H= foreach G generate SUM(F.commentcount),SUM(F.answercount),SUM(F.score);
+    dump H;
+
+
+
+
+
+
+
+
+
+
+
+
